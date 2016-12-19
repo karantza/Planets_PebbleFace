@@ -1,0 +1,55 @@
+{
+    "author": "Karantza",
+    "dependencies": {},
+    "keywords": [],
+    "name": "planets",
+    "pebble": {
+        "capabilities": [
+            "location",
+            "configurable",
+            "health"
+        ],
+        "displayName": "Planets",
+        "enableMultiJS": true,
+        "messageKeys": [
+            "TEMPERATURE",
+            "CONDITIONS",
+            "SPACE_SUN",
+            "SPACE_SUNRISE",
+            "SPACE_SUNSET",
+            "SPACE_MOON",
+            "SPACE_MERCURY",
+            "SPACE_VENUS",
+            "SPACE_MARS",
+            "SPACE_JUPITER",
+            "SPACE_SATURN"
+        ],
+        "projectType": "native",
+        "resources": {
+            "media": [
+                {
+                    "file": "images/pebble-1.png",
+                    "menuIcon": true,
+                    "name": "screenshot",
+                    "targetPlatforms": null,
+                    "type": "png"
+                },
+                {
+                    "file": "images/bt-icon.png",
+                    "name": "IMAGE_BT_ICON",
+                    "targetPlatforms": null,
+                    "type": "png"
+                }
+            ]
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "basalt"
+        ],
+        "uuid": "2049ed14-a900-44f0-ad90-bdf1e7ccade7",
+        "watchapp": {
+            "watchface": true
+        }
+    },
+    "version": "1.0.0"
+}
