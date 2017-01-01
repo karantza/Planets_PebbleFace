@@ -22,7 +22,9 @@
             "SPACE_VENUS",
             "SPACE_MARS",
             "SPACE_JUPITER",
-            "SPACE_SATURN"
+            "SPACE_SATURN",
+            "CITY",
+            "FORECAST"
         ],
         "projectType": "native",
         "resources": {

@@ -21,8 +21,40 @@ function locationSuccess(pos) {
     
     var date = new Date();
     
+    getCity(lat, lon);
     getWeather(lat, lon);
     getSpace(lat, lon, date);
+}
+
+function getCity(lat, lon) {
+    var key = '1fea09dcd5fb19e812f9';
+    var url = 'http://locationiq.org/v1/reverse.php?format=json&key=' + key + '&lat=' + lat + '&lon=' + lon + '&zoom=10';
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function () {
+        // responseText contains a JSON object with weather info
+        var json = JSON.parse(this.responseText);
+        
+        console.log(JSON.stringify(json, null, 2));
+        
+        var cityname = json.address.city;
+        
+        // Assemble dictionary using our keys
+        var dictionary = {
+            'CITY': cityname,
+        };
+
+        // Send to Pebble
+        Pebble.sendAppMessage(dictionary,
+                              function(e) {
+                                  console.log('City info sent to Pebble successfully!');
+                              },
+                              function(e) {
+                                  console.log('Error sending city info to Pebble!');
+                              }
+                             );
+    } ;   
+    xhr.open('GET', url);
+    xhr.send();
 }
 
 function getWeather(lat, lon) {
@@ -42,11 +74,45 @@ function getWeather(lat, lon) {
         // Conditions
         var conditions = json.hourly.summary;      
         console.log('Conditions are ' + conditions);
+        
+        var nextDay = "";
+        for (var i = 0; i < 24; i++) {
+            //clear-day, clear-night, rain, snow, sleet, wind, fog, cloudy, partly-cloudy-day, or partly-cloudy-night
+            // c, r, s, p, _, ?
+            switch(json.hourly.data[i].icon) {
+                case 'clear-day':
+                case 'clear-night':
+                case 'wind':
+                    nextDay += '_';
+                    break;
+                case 'rain':
+                    nextDay += 'r';
+                    break;                    
+                case 'snow':
+                case 'sleet':
+                    nextDay += 's';
+                    break;
+                case 'fog':
+                case 'cloudy':
+                    nextDay += 'c';
+                    break;
+                case 'partly-cloudy-day':
+                case 'partly-cloudy-night':
+                    nextDay += 'p';
+                    break;
+                default:
+                    nextDay += '?';
+                    break;
+            }
+        }
 
+        console.log("Next 24 hours: " + nextDay);
+        
         // Assemble dictionary using our keys
         var dictionary = {
             'TEMPERATURE': temperature,
-            'CONDITIONS': conditions
+            'CONDITIONS': conditions,
+            'FORECAST': nextDay
         };
 
         // Send to Pebble
