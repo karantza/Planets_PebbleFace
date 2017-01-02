@@ -72,7 +72,7 @@ function getWeather(lat, lon) {
         console.log('Temperature is ' + temperature);
 
         // Conditions
-        var conditions = json.hourly.summary;      
+        var conditions = json.currently.summary;      
         console.log('Conditions are ' + conditions);
         
         var nextDay = "";

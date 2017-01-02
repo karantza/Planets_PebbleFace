@@ -1,8 +1,7 @@
 #include <pebble.h>
 
-#define COLOR_TIME GColorLightGray
+#define COLOR_TIME GColorDarkGray
 #define COLOR_TEXT GColorDarkGray 
-#define COLOR_DIVIDER GColorDarkGray
 #define COLOR_NIGHT GColorBlack
 #define COLOR_GROUND_DAY GColorOxfordBlue  
 #define COLOR_GROUND_NIGHT GColorDukeBlue  
@@ -16,16 +15,13 @@
 #define COLOR_SATURN GColorMalachite
 
 #define COLOR_CLOUDY GColorLightGray
-#define COLOR_RAINY GColorBrightGreen
+#define COLOR_RAINY GColorJaegerGreen 
 #define COLOR_SNOWY GColorPictonBlue
 #define COLOR_PARTLY GColorDarkGray
 
 #define TRI_W 8
 
-static const GPathInfo UL = { .num_points = 3, .points = (GPoint []) {{0, 0}, {TRI_W, 0}, {0,TRI_W}} };
-static const GPathInfo UR = { .num_points = 3, .points = (GPoint []) {{PBL_DISPLAY_WIDTH , 0}, {PBL_DISPLAY_WIDTH - TRI_W, 0}, {PBL_DISPLAY_WIDTH, TRI_W}} };
-static const GPathInfo BR = { .num_points = 3, .points = (GPoint []) {{PBL_DISPLAY_WIDTH , PBL_DISPLAY_HEIGHT }, {PBL_DISPLAY_WIDTH - TRI_W, PBL_DISPLAY_HEIGHT }, {PBL_DISPLAY_WIDTH ,PBL_DISPLAY_HEIGHT - TRI_W}} };
-static const GPathInfo BL = { .num_points = 3, .points = (GPoint []) {{0, PBL_DISPLAY_HEIGHT }, {TRI_W, PBL_DISPLAY_HEIGHT }, {0,PBL_DISPLAY_HEIGHT - TRI_W}} };
+#define ANALOG
 
 /* Main */
 static Window *s_main_window;
@@ -37,17 +33,18 @@ static bool s_charging;
 
 /* Weather */
 static TextLayer *s_city_layer, *s_temp_layer, *s_conditions_layer;
-static GFont s_city_font, s_conditions_font;
+static GFont s_city_font;
 static char forecast_str[25];
 static Layer *s_forecast_layer;
 
 /* Time and date */
 static TextLayer *s_time_layer, *s_date_layer;
 static GFont s_time_font, s_date_font;
-static Layer *s_analog_layer;
+static Layer *s_analog_layer, *s_24hour_layer;
 
 /* Steps */
 static TextLayer *s_steps_layer;
+static GFont s_steps_font;
 static char steps_str[12];
 
 /* Bluetooth */
@@ -60,6 +57,72 @@ static bool s_space_ready;
 
 static Layer *s_space_layer;
 static GPath *ULp, *URp, *BRp, *BLp;
+
+    
+static GPoint hours(int hour, int w, int h, int b)
+{
+    w -= b*2;
+    h -= b*2;
+    switch (hour % 24) {
+        case 0:
+        return GPoint(3*w/6+b,h+b); // 0
+        case 1:
+        return GPoint(2*w/6+b,h+b); // 1
+        case 2:
+        return GPoint(1*w/6+b,h+b); // 2
+
+        case 3:
+        return GPoint(b,6*h/6+b); // 3
+
+        case 4:
+        return GPoint(b,5*h/6+b); // 4
+        case 5:
+        return GPoint(b,4*h/6+b); // 5
+        case 6:
+        return GPoint(b,3*h/6+b); // 6
+        case 7:
+        return GPoint(b,2*h/6+b); // 7
+        case 8:
+        return GPoint(b,1*h/6+b); // 8
+
+        case 9:
+        return GPoint(b,b); // 9
+
+        case 10:
+        return GPoint(1*w/6+b,b); // 10
+        case 11:
+        return GPoint(2*w/6+b,b); // 11
+        case 12:
+        return GPoint(3*w/6+b,b); // 12
+        case 13:
+        return GPoint(4*w/6+b,b); // 13
+        case 14:
+        return GPoint(5*w/6+b,b); // 14
+
+        case 15:
+        return GPoint(w+b,b); // 15
+
+        case 16:
+        return GPoint(w+b,1*h/6+b); // 16 
+        case 17:
+        return GPoint(w+b,2*h/6+b); // 17
+        case 18:
+        return GPoint(w+b,3*h/6+b); // 18
+        case 19:
+        return GPoint(w+b,4*h/6+b); // 19
+        case 20:
+        return GPoint(w+b,5*h/6+b); // 20
+
+        case 21:
+        return GPoint(w+b,h+b); // 21
+
+        case 22:
+        return GPoint(5*w/6+b,h+b); // 22
+        default:
+        return GPoint(4*w/6+b,h+b); // 23
+    }
+}
+
 /*
 // Triggered when bluetooth connects/disconnects
 static void bluetooth_callback(bool connected) {
@@ -96,8 +159,13 @@ static void health_handler(HealthEventType event, void *context) {
             HealthServiceAccessibilityMask mask = health_service_metric_accessible(metric, start, end);
 
             if(mask & HealthServiceAccessibilityMaskAvailable) {                
-                snprintf(steps_str, 12, "%d Steps", (int)health_service_sum_today(metric));
-                
+                int steps = (int)health_service_sum_today(metric);
+                steps = 12345;
+                if (steps > 999) {
+                    snprintf(steps_str, 12, "%d,%03d", steps/1000, steps%1000);            
+                } else {
+                    snprintf(steps_str, 12, "%d", steps);
+                }
                 text_layer_set_text(s_steps_layer, steps_str);
                 //layer_mark_dirty(s_steps_layer);
 
@@ -127,11 +195,14 @@ static void update_time() {
     }
     text_layer_set_text(s_time_layer, buffer);
     
+    #ifdef ANALOG
+    layer_mark_dirty(s_analog_layer);
+    #endif
+    
     // Show the date
     static char date_buffer[16];
     strftime(date_buffer, sizeof(date_buffer), "%a %b %e", tick_time);
     text_layer_set_text(s_date_layer, date_buffer);
-
 
     if(tick_time->tm_min % 15 == 0) {
         // Begin dictionary
@@ -217,80 +288,66 @@ static GPoint coord_for_light(int a) {
     return point;
 }
 
+// Draw the 24 hour labels
+static void label_update_proc(Layer* layer, GContext* ctx)
+{
+    GRect bounds = layer_get_unobstructed_bounds(layer);
+
+    GFont labelFont = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+    
+    for (int i = 0; i < 24; i+=2) {
+        GPoint p = hours(i, bounds.size.w, bounds.size.h, 5);
+        char hourStr[3];// = "12";
+        snprintf(hourStr, sizeof(hourStr), "%d", i);
+        GRect labelRect = GRect(p.x-10,p.y-10,20,20);
+        
+        graphics_context_set_stroke_color(ctx, GColorBabyBlueEyes);
+//        graphics_draw_rect(ctx, labelRect);
+
+        graphics_draw_text(ctx,
+                           hourStr,
+                           labelFont, 
+                           labelRect,
+                           GTextOverflowModeWordWrap,
+                           GTextAlignmentCenter, 
+                           NULL);
+
+    }
+}
+
 // Draw forecast ring
 static void forecast_update_proc(Layer* layer, GContext* ctx) {
     GRect fcst_bounds = layer_get_unobstructed_bounds(layer);
 
-    graphics_context_set_stroke_width(ctx, 4);
 
-    int b = 5;
+    int b = 9;
 
-    int w = fcst_bounds.size.w - 2*b;
-    int h = fcst_bounds.size.h - 2*b;
+    int w = fcst_bounds.size.w;
+    int h = fcst_bounds.size.h;
     
-    // 12 = W + H
-    int step = (w + h) / 12;
-    int wCount = w / step;
-    int hCount = 12 - wCount;
-    
-    int wStep = w / wCount;
-    int hStep = h / hCount;
-    
-    GPoint hours[24] = {
-        
-        GPoint(3*w/6+b,h+b), // 0
-        GPoint(2*w/6+b,h+b), // 1
-        GPoint(1*w/6+b,h+b), // 2
-        
-        GPoint(b,6*h/6+b), // 3
-        
-        GPoint(b,5*h/6+b), // 4
-        GPoint(b,4*h/6+b), // 5
-        GPoint(b,3*h/6+b), // 6
-        GPoint(b,2*h/6+b), // 7
-        GPoint(b,1*h/6+b), // 8
-        
-        GPoint(b,b), // 9
-        
-        GPoint(1*w/6+b,b), // 10
-        GPoint(2*w/6+b,b), // 11
-        GPoint(3*w/6+b,b), // 12
-        GPoint(4*w/6+b,b), // 13
-        GPoint(5*w/6+b,b), // 14
-        
-        GPoint(w+b,b), // 15
-        
-        GPoint(w+b,1*h/6+b), // 16 
-        GPoint(w+b,2*h/6+b), // 17
-        GPoint(w+b,3*h/6+b), // 18
-        GPoint(w+b,4*h/6+b), // 19
-        GPoint(w+b,5*h/6+b), // 20
-        
-        GPoint(w+b,h+b), // 21
-        
-        GPoint(5*w/6+b,h+b), // 22
-        GPoint(4*w/6+b,h+b) // 23
-    };
-
     time_t temp = time(NULL); 
     struct tm *tick_time = localtime(&temp);
     int hour = tick_time->tm_hour;
-    
+
     for (int i = 0; i < 24; i++) {
-        GPoint* p1 = &hours[(i + hour) % 24];
-        GPoint* p2 = &hours[(i + hour + 1) % 24];
+        GPoint p1 = hours(i + hour,w,h,b);
+        GPoint p2 = hours(i + hour + 1,w,h,b);
         //c, r, s, p, _, ? = cloudy, rain, snow, partly cloudy, clear, unknown
         switch (forecast_str[i]) {
             case 'c':
+            graphics_context_set_stroke_width(ctx, 3);
             graphics_context_set_stroke_color(ctx, COLOR_CLOUDY);
             break;
             case 'r':
+            graphics_context_set_stroke_width(ctx, 4);
             graphics_context_set_stroke_color(ctx, COLOR_RAINY);
             break;
             case 's':
+            graphics_context_set_stroke_width(ctx, 4);
             graphics_context_set_stroke_color(ctx, COLOR_SNOWY);
             break;
             case 'p':
+            graphics_context_set_stroke_width(ctx, 2);
             graphics_context_set_stroke_color(ctx, COLOR_PARTLY);
             break;
             case '_':
@@ -301,13 +358,11 @@ static void forecast_update_proc(Layer* layer, GContext* ctx) {
             graphics_context_set_stroke_color(ctx, GColorRed);
 
         }
-        graphics_draw_line(ctx, *p1, *p2);
+        graphics_draw_line(ctx, p1, p2);
     }
-    
 }
 
 // Analog hands drawing
-
 static GPoint rayFrom(int tri, int radius)
 {
     GPoint ray = {center.x + sin_lookup(tri)*radius / TRIG_MAX_RATIO , center.y - cos_lookup(tri)*radius / TRIG_MAX_RATIO };
@@ -319,8 +374,8 @@ static void analog_update_proc(Layer *layer, GContext *ctx) {
     time_t temp = time(NULL); 
     struct tm *tick_time = localtime(&temp);
     
-    int minArmLen = center.x - 10;
-    int hourArmLen = center.x - 30;
+    int minArmLen = center.x - 20;
+    int hourArmLen = center.x - 35;
      
     int hourHand = (tick_time->tm_hour * 60 + tick_time->tm_min) / 2; // 0 to 1440 = 0h tp 24h
     int hourAngle = DEG_TO_TRIGANGLE(hourHand);
@@ -328,6 +383,21 @@ static void analog_update_proc(Layer *layer, GContext *ctx) {
     int minHand = (tick_time->tm_min * 6);
     int minAngle = DEG_TO_TRIGANGLE(minHand);
 
+    // Draw correct clock markings
+    {
+        for (int i = 0; i < 12; i++) {
+            GPoint pt1 = rayFrom(DEG_TO_TRIGANGLE(i * 30), center.x - 25);
+            GPoint pt2 = rayFrom(DEG_TO_TRIGANGLE(i * 30), center.x - 22);
+            bool big = i%3==0;
+                        
+            graphics_context_set_stroke_color(ctx, GColorBlack);
+            graphics_context_set_stroke_width(ctx, 2);
+            graphics_draw_line(ctx, pt1, pt2);
+            graphics_context_set_stroke_color(ctx, big?GColorWhite:GColorLightGray);
+            graphics_context_set_stroke_width(ctx, 1);
+            graphics_draw_line(ctx, pt1, pt2);
+        }
+    }
 
     // Draw hour shadow    
     {
@@ -366,15 +436,13 @@ static void analog_update_proc(Layer *layer, GContext *ctx) {
         graphics_context_set_stroke_width(ctx, 1);
         graphics_draw_line(ctx, center, rayFrom(minAngle, 20));
         graphics_context_set_stroke_width(ctx, 5);
-        graphics_draw_line(ctx, rayFrom(minAngle, 20), rayFrom(minAngle, minArmLen));
-        
+        graphics_draw_line(ctx, rayFrom(minAngle, 20), rayFrom(minAngle, minArmLen));  
     }
     
     // Draw hub
     graphics_context_set_fill_color(ctx, GColorWhite);
     graphics_fill_circle(ctx, center, 2);
     
-
 }
 
 
@@ -399,25 +467,6 @@ static void space_update_proc(Layer *layer, GContext *ctx) {
         GRect rect = {GPoint(point.x - 5, point.y - 5), GSize(10,10)};
         graphics_fill_rect (ctx, rect, 0, GCornerNone);
     }
-    
-    /*
-    for (int a = 0; a < 60; a += 5) {  
-        GPoint point = coord_for_light(a);
-        if (a > s_sunset && a < s_sunrise) {
-            graphics_context_set_stroke_color(ctx, daytime ? GColorLightGray : GColorRed);
-        } else {
-            graphics_context_set_stroke_color(ctx, daytime ? GColorBlack : GColorRed);
-        }
-
-        graphics_draw_line(ctx, center, point);
-    }
-
-    graphics_context_set_fill_color(ctx, GColorBlack);
-    
-    GRect centerRect = {GPoint(5,5),GSize(bounds.size.w-10, bounds.size.h-10)};
-    graphics_fill_rect(ctx, centerRect, 0, GCornerNone);
-    
-    */
     
     // Draw corners
     graphics_context_set_fill_color(ctx, GColorBlack);    
@@ -452,8 +501,6 @@ static void space_update_proc(Layer *layer, GContext *ctx) {
     graphics_context_set_fill_color(ctx, COLOR_MOON);
     graphics_fill_circle(ctx, coord_for_light(s_moon), 6);
 
-    graphics_context_set_fill_color(ctx, COLOR_MERCURY);
-    graphics_fill_circle(ctx, coord_for_light(s_mercury), 3);
 
     graphics_context_set_fill_color(ctx, COLOR_VENUS);
     graphics_fill_circle(ctx, coord_for_light(s_venus), 5);
@@ -466,15 +513,9 @@ static void space_update_proc(Layer *layer, GContext *ctx) {
 
     graphics_context_set_fill_color(ctx, COLOR_SATURN);
     graphics_fill_circle(ctx, coord_for_light(s_saturn), 5);
-    
-    // Draw dividers
-    GRect d1 = {GPoint(10, 65), GSize(bounds.size.w - 20,2)};
-    GRect d2 = {GPoint(10, 132), GSize(bounds.size.w - 20,2)};
-    
-    graphics_context_set_fill_color(ctx, COLOR_DIVIDER);
- 
-    graphics_fill_rect (ctx, d1, 0, GCornerNone);
-    graphics_fill_rect (ctx, d2, 0, GCornerNone);
+
+    graphics_context_set_fill_color(ctx, COLOR_MERCURY);
+    graphics_fill_circle(ctx, coord_for_light(s_mercury), 3);
 }
 
 // tick has occurred 
@@ -567,14 +608,20 @@ static void main_window_load(Window *window) {
 
     int w = window_bounds.size.w;
     int h = window_bounds.size.h;
-    
 
-    ULp = gpath_create(&UL);
-    URp = gpath_create(&UR);
-    BRp = gpath_create(&BR);
-    BLp = gpath_create(&BL);
-
+    GRect cityRect = GRect(20, 15, 100, 25);
+    GRect tempRect = GRect(w - 50 - 20, 15, 50, 20);
+    GRect timeRect = GRect(0, h/2-30, w, 50);
+    GRect batteryRect = GRect(20, 145, 40, 5);
+    GRect stepRect = GRect(20, 136, w - 40, 50);
     
+    #ifdef ANALOG
+    GRect dateRect = GRect(0, h/2+5, w, 30);
+    GRect conditionRect = GRect(20, h/2-25, w - 40, 40);    
+    #else
+    GRect dateRect = GRect(0, h/2+20, w, 30);
+    GRect conditionRect = GRect(20, 33, w - 40, 40);
+    #endif
     // Create GFonts
     //s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_PERFECT_DOS_48));
     //s_date_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_PERFECT_DOS_20));
@@ -582,8 +629,7 @@ static void main_window_load(Window *window) {
     s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
     
     s_city_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-    s_conditions_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
-        
+    s_steps_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
     
     // Weather forecast layer
     s_forecast_layer = layer_create(GRect(5, 5, w - 10, h - 10));
@@ -595,9 +641,13 @@ static void main_window_load(Window *window) {
     layer_set_update_proc(s_space_layer, space_update_proc);
     layer_add_child(window_get_root_layer(window), s_space_layer);
     
+    // Create space layer
+    s_24hour_layer = layer_create(window_bounds);
+    layer_set_update_proc(s_24hour_layer, label_update_proc);
+    layer_add_child(window_get_root_layer(window), s_24hour_layer);
     
     // City layer
-    s_city_layer = text_layer_create(GRect(15, 10, 100, 20));
+    s_city_layer = text_layer_create(cityRect);
     text_layer_set_background_color(s_city_layer, GColorClear);
     text_layer_set_text_color(s_city_layer, COLOR_TEXT);
     text_layer_set_text(s_city_layer, "--");
@@ -606,7 +656,7 @@ static void main_window_load(Window *window) {
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_city_layer));
 
     // Temp layer
-    s_temp_layer = text_layer_create(GRect(window_bounds.size.w - 50 - 15, 10, 50, 20));
+    s_temp_layer = text_layer_create(tempRect);
     text_layer_set_background_color(s_temp_layer, GColorClear);
     text_layer_set_text_color(s_temp_layer, COLOR_TIME);
     text_layer_set_text(s_temp_layer, "--˚");
@@ -614,27 +664,20 @@ static void main_window_load(Window *window) {
     text_layer_set_text_alignment(s_temp_layer, GTextAlignmentRight);
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_temp_layer));
 
-    // Conditions layer
-    s_conditions_layer = text_layer_create(GRect(10, 31, window_bounds.size.w - 20, 40));
-    text_layer_set_background_color(s_conditions_layer, GColorClear);
-    text_layer_set_text_color(s_conditions_layer, COLOR_TEXT);
-    text_layer_set_text(s_conditions_layer, "Getting Forecast");
-    text_layer_set_font(s_conditions_layer, s_conditions_font);
-    text_layer_set_text_alignment(s_conditions_layer, GTextAlignmentCenter);
-    text_layer_set_overflow_mode(s_conditions_layer, GTextOverflowModeTrailingEllipsis );
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_conditions_layer));
-    
     // Create time TextLayer
-    s_time_layer = text_layer_create(GRect(5, 63, 139, 50));
+    s_time_layer = text_layer_create(timeRect);
     text_layer_set_background_color(s_time_layer, GColorClear);
-    text_layer_set_text_color(s_time_layer, COLOR_TIME);
+    text_layer_set_text_color(s_time_layer, GColorWhite);
     text_layer_set_text(s_time_layer, "--:--");
     text_layer_set_font(s_time_layer, s_time_font);
     text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
+    
+    #ifndef ANALOG
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));
+    #endif
     
     // Create date TextLayer
-    s_date_layer = text_layer_create(GRect(0, 106, 144, 30));
+    s_date_layer = text_layer_create(dateRect);
     text_layer_set_text_color(s_date_layer, COLOR_TIME);
     text_layer_set_background_color(s_date_layer, GColorClear);
     text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
@@ -642,25 +685,39 @@ static void main_window_load(Window *window) {
     text_layer_set_font(s_date_layer, s_date_font);
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_date_layer));
 
-    // Analog hands layer
-    s_analog_layer = layer_create(window_bounds);
-    layer_set_update_proc(s_analog_layer, analog_update_proc);
-    layer_add_child(window_get_root_layer(window), s_analog_layer);
-    
     // Create battery meter Layer
-    s_battery_layer = layer_create(GRect(15, 145, 50, 5));
+    s_battery_layer = layer_create(batteryRect);
     layer_set_update_proc(s_battery_layer, battery_update_proc);
     layer_add_child(window_get_root_layer(window), s_battery_layer);
     
     // Steps layer
-    s_steps_layer = text_layer_create(GRect(15, 138, window_bounds.size.w - 30, 50));
+    s_steps_layer = text_layer_create(stepRect);
     text_layer_set_background_color(s_steps_layer, GColorClear);
     text_layer_set_text_color(s_steps_layer, COLOR_TEXT);
-    text_layer_set_text(s_steps_layer, "------ Steps");
-    text_layer_set_font(s_steps_layer, s_conditions_font);
+    text_layer_set_text(s_steps_layer, "------");
+    text_layer_set_font(s_steps_layer, s_steps_font);
     text_layer_set_text_alignment(s_steps_layer, GTextAlignmentRight);
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_steps_layer));
 
+    
+    // Conditions layer
+    s_conditions_layer = text_layer_create(conditionRect);
+    text_layer_set_background_color(s_conditions_layer, GColorClear);
+    text_layer_set_text_color(s_conditions_layer, COLOR_TEXT);
+    text_layer_set_text(s_conditions_layer, "---");
+    text_layer_set_font(s_conditions_layer, s_steps_font);
+    text_layer_set_text_alignment(s_conditions_layer, GTextAlignmentCenter);
+    text_layer_set_overflow_mode(s_conditions_layer, GTextOverflowModeTrailingEllipsis );
+    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_conditions_layer));
+
+    // Analog hands layer
+    s_analog_layer = layer_create(window_bounds);
+    layer_set_update_proc(s_analog_layer, analog_update_proc);
+    #ifdef ANALOG
+    layer_add_child(window_get_root_layer(window), s_analog_layer);
+    #endif
+    
+    
 /*    
     // Create the Bluetooth icon GBitmap
     s_bt_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BT_ICON);
