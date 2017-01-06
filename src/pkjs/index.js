@@ -11,6 +11,7 @@ Pebble.addEventListener('ready',
 Pebble.addEventListener('appmessage',
                         function(e) {
                             console.log('AppMessage received!');
+                            loadSettings();
                             getLocation();
                         }                     
                        );
@@ -21,7 +22,7 @@ function locationSuccess(pos) {
     
     var date = new Date();
     
-    getCity(lat, lon);
+    //getCity(lat, lon);
     getWeather(lat, lon);
     getSpace(lat, lon, date);
 }
@@ -59,74 +60,79 @@ function getCity(lat, lon) {
 
 function getWeather(lat, lon) {
     
-    var apiKey = '89a75653232ead9e9acc0161ccb193a2';    
-    var url = 'https://api.darksky.net/forecast/' + apiKey + '/' + lat + ',' + lon + '?units=uk2';
-    console.log(url);
-    var xhr = new XMLHttpRequest();
-    xhr.onload = function () {
-        // responseText contains a JSON object with weather info
-        var json = JSON.parse(this.responseText);
+    var apiKey = settings.CFG_DARKSKY_KEY;
+    var units = settings.CFG_CELSIUS ? 'si' : 'us';
 
-        // Temperature in Kelvin requires adjustment
-        var temperature = Math.round(json.currently.temperature);
-        console.log('Temperature is ' + temperature);
+    if (apiKey !== "") {
 
-        // Conditions
-        var conditions = json.currently.summary;      
-        console.log('Conditions are ' + conditions);
-        
-        var nextDay = "";
-        for (var i = 0; i < 24; i++) {
-            //clear-day, clear-night, rain, snow, sleet, wind, fog, cloudy, partly-cloudy-day, or partly-cloudy-night
-            // c, r, s, p, _, ?
-            switch(json.hourly.data[i].icon) {
-                case 'clear-day':
-                case 'clear-night':
-                case 'wind':
-                    nextDay += '_';
-                    break;
-                case 'rain':
-                    nextDay += 'r';
-                    break;                    
-                case 'snow':
-                case 'sleet':
-                    nextDay += 's';
-                    break;
-                case 'fog':
-                case 'cloudy':
-                    nextDay += 'c';
-                    break;
-                case 'partly-cloudy-day':
-                case 'partly-cloudy-night':
-                    nextDay += 'p';
-                    break;
-                default:
-                    nextDay += '?';
-                    break;
+        var url = 'https://api.darksky.net/forecast/' + apiKey + '/' + lat + ',' + lon + '?units=' + units;
+        console.log(url);
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+            // responseText contains a JSON object with weather info
+            var json = JSON.parse(this.responseText);
+
+            // Temperature in Kelvin requires adjustment
+            var temperature = Math.round(json.currently.temperature);
+            console.log('Temperature is ' + temperature);
+
+            // Conditions
+            var conditions = json.currently.icon;      
+            console.log('Conditions are ' + conditions);
+
+            var nextDay = "";
+            for (var i = 0; i < 24; i++) {
+                //clear-day, clear-night, rain, snow, sleet, wind, fog, cloudy, partly-cloudy-day, or partly-cloudy-night
+                // c, r, s, p, _, ?
+                switch(json.hourly.data[i].icon) {
+                    case 'clear-day':
+                    case 'clear-night':
+                    case 'wind':
+                        nextDay += '_';
+                        break;
+                    case 'rain':
+                        nextDay += 'r';
+                        break;                    
+                    case 'snow':
+                    case 'sleet':
+                        nextDay += 's';
+                        break;
+                    case 'fog':
+                    case 'cloudy':
+                        nextDay += 'c';
+                        break;
+                    case 'partly-cloudy-day':
+                    case 'partly-cloudy-night':
+                        nextDay += 'p';
+                        break;
+                    default:
+                        nextDay += '?';
+                        break;
+                }
             }
-        }
 
-        console.log("Next 24 hours: " + nextDay);
-        
-        // Assemble dictionary using our keys
-        var dictionary = {
-            'TEMPERATURE': temperature,
-            'CONDITIONS': conditions,
-            'FORECAST': nextDay
-        };
+            console.log("Next 24 hours: " + nextDay);
 
-        // Send to Pebble
-        Pebble.sendAppMessage(dictionary,
-                              function(e) {
-                                  console.log('Weather info sent to Pebble successfully!');
-                              },
-                              function(e) {
-                                  console.log('Error sending weather info to Pebble!');
-                              }
-                             );
-    } ;   
-    xhr.open('GET', url);
-    xhr.send();
+            // Assemble dictionary using our keys
+            var dictionary = {
+                'TEMPERATURE': temperature,
+                'CONDITIONS': conditions,
+                'FORECAST': nextDay
+            };
+
+            // Send to Pebble
+            Pebble.sendAppMessage(dictionary,
+                                  function(e) {
+                                      console.log('Weather info sent to Pebble successfully!');
+                                  },
+                                  function(e) {
+                                      console.log('Error sending weather info to Pebble!');
+                                  }
+                                 );
+        } ;   
+        xhr.open('GET', url);
+        xhr.send();
+    }
 }
 
 function locationError(err) {
@@ -166,6 +172,27 @@ function getLocation() {
         {timeout: 15000, maximumAge: 60000}
     );
 }
+
+// Import the Clay package
+var Clay = require('pebble-clay');
+// Load our Clay configuration file
+var clayConfig = require('./config');
+// Initialize Clay
+var clay = new Clay(clayConfig);
+
+var defaultSettings = {'CFG_ANALOG':true, 'CFG_CELSIUS':true, 'CFG_DARKSKY_KEY':'' }
+var settings = {};
+
+function loadSettings() {
+    try {
+        settings = JSON.parse(localStorage.getItem('clay-settings')) || defaultSettings;
+        console.log("Settings: " + settings);
+    } catch (e) {
+        console.log("Failed to get settings: " + e);
+    }
+}
+
+loadSettings();
 
 // Listen for when the watchface is opened
 Pebble.addEventListener('ready', 

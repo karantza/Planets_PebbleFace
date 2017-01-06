@@ -1,6 +1,8 @@
 {
     "author": "Karantza",
-    "dependencies": {},
+    "dependencies": {
+        "pebble-clay": "^1.0.3"
+    },
     "keywords": [],
     "name": "planets",
     "pebble": {
@@ -23,12 +25,74 @@
             "SPACE_MARS",
             "SPACE_JUPITER",
             "SPACE_SATURN",
-            "CITY",
-            "FORECAST"
+            "FORECAST",
+            "CFG_CELSIUS",
+            "CFG_DARKSKY_KEY",
+            "CFG_ANALOG"
         ],
         "projectType": "native",
         "resources": {
             "media": [
+                {
+                    "file": "images/Cloud-Moon-01.png",
+                    "name": "COND_PC_NIGHT",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Cloud-Sun-01.png",
+                    "name": "COND_PC",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Cloud-01.png",
+                    "name": "COND_CLOUDY",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Cloud-Fog-01.png",
+                    "name": "COND_FOG",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Wind-01.png",
+                    "name": "COND_WIND",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Cloud-Snow-01.png",
+                    "name": "COND_SLEET",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Snowflake-01.png",
+                    "name": "COND_SNOW",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Cloud-Rain-01.png",
+                    "name": "COND_RAIN",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Moon-01.png",
+                    "name": "COND_CLEAR_NIGHT",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/Sun-01.png",
+                    "name": "COND_CLEAR",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
                 {
                     "file": "images/pebble-1.png",
                     "menuIcon": true,
@@ -46,7 +110,8 @@
         },
         "sdkVersion": "3",
         "targetPlatforms": [
-            "basalt"
+            "basalt",
+            "emery"
         ],
         "uuid": "2049ed14-a900-44f0-ad90-bdf1e7ccade7",
         "watchapp": {
