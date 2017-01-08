@@ -17,7 +17,9 @@ On this track are seven markers:
 * Jupiter, small and purple
 * Saturn, small and green
 
-These markers are placed at their approximate positions in the sky. If you were to stand looking south (in the northern hemisphere), your watch will roughly reflect the sky you see. If planets are to the right of the watch, they'll be in the right part of the southern sky, etc.
+These markers are placed at their approximate positions in the sky. If you were to stand looking south (in the northern hemisphere), your watch will roughly reflect the sky you see. If planets are to the right of the watch, they'll be in the right part of the southern sky, etc. See the following screenshot from Stellarium to see what the actual sky would look like, looking south, at the time of this screenshot:
+
+![stellarium screenshot](https://raw.githubusercontent.com/karantza/Planets_PebbleFace/master/stellarium.png)
 
 ## Weather
 
