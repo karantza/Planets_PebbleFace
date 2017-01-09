@@ -60,7 +60,7 @@ function getCity(lat, lon) {
 
 function getWeather(lat, lon) {
     
-    var apiKey = settings.CFG_DARKSKY_KEY;
+    var apiKey = settings.CFG_DARKSKY_KEY.trim();
     var units = settings.CFG_CELSIUS ? 'si' : 'us';
 
     if (apiKey !== "") {
