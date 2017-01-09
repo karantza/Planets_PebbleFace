@@ -28,7 +28,28 @@
             "FORECAST",
             "CFG_CELSIUS",
             "CFG_DARKSKY_KEY",
-            "CFG_ANALOG"
+            "CFG_ANALOG",
+            "COLOR_TIME",
+            "COLOR_DATE",
+            "COLOR_TEMP",
+            "COLOR_STEPS",
+            "COLOR_BATT",
+            "COLOR_NIGHT",
+            "COLOR_GROUND_DAY",
+            "COLOR_GROUND_NIGHT",
+            "COLOR_DAY",
+            "COLOR_SUN",
+            "COLOR_MOON",
+            "COLOR_MERCURY",
+            "COLOR_VENUS",
+            "COLOR_MARS",
+            "COLOR_JUPITER",
+            "COLOR_SATURN",
+            "COLOR_CLOUDY",
+            "COLOR_RAINY",
+            "COLOR_SNOWY",
+            "COLOR_PARTLY",
+            "CFG_DATE_FORMAT"
         ],
         "projectType": "native",
         "resources": {
@@ -110,8 +131,7 @@
         },
         "sdkVersion": "3",
         "targetPlatforms": [
-            "basalt",
-            "emery"
+            "basalt"
         ],
         "uuid": "2049ed14-a900-44f0-ad90-bdf1e7ccade7",
         "watchapp": {

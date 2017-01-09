@@ -1,84 +1,35 @@
-#include <pebble.h>
+#include "main.h"
 
-#define COLOR_TIME GColorWhite
-#define COLOR_DATE GColorWhite
-#define COLOR_TEMP GColorWhite
-#define COLOR_STEPS GColorWhite
-#define COLOR_BATT GColorWhite
+// Initialize the default settings
+static void prv_default_settings() {
+    settings.Analog = true;
+    
+    strcpy(settings.dateFormat, "%b %e");
+    
+    settings.color_TIME = GColorWhite;
+    settings.color_DATE = GColorWhite;
+    settings.color_TEMP = GColorWhite;
+    settings.color_STEPS = GColorWhite;
+    settings.color_BATT = GColorWhite;
 
-#define COLOR_NIGHT GColorBlack
-#define COLOR_GROUND_DAY GColorOxfordBlue  
-#define COLOR_GROUND_NIGHT GColorDukeBlue  
-#define COLOR_DAY GColorVividCerulean
-#define COLOR_SUN GColorWhite
-#define COLOR_MOON GColorWhite
-#define COLOR_MERCURY GColorVividCerulean
-#define COLOR_VENUS GColorRajah
-#define COLOR_MARS GColorRed
-#define COLOR_JUPITER GColorFashionMagenta
-#define COLOR_SATURN GColorMalachite
+    settings.color_NIGHT = GColorBlack;
+    settings.color_GROUND_DAY = GColorOxfordBlue;  
+    settings.color_GROUND_NIGHT = GColorDukeBlue;  
+    settings.color_DAY = GColorVividCerulean;
+    settings.color_SUN = GColorWhite;
+    settings.color_MOON = GColorWhite;
+    settings.color_MERCURY = GColorVividCerulean;
+    settings.color_VENUS = GColorRajah;
+    settings.color_MARS = GColorRed;
+    settings.color_JUPITER = GColorFashionMagenta;
+    settings.color_SATURN = GColorMalachite;
 
-#define COLOR_CLOUDY GColorLightGray
-#define COLOR_RAINY GColorJaegerGreen 
-#define COLOR_SNOWY GColorPictonBlue
-#define COLOR_PARTLY GColorDarkGray
-
-#define TRI_W 8
-
-// Persistent storage key
-#define SETTINGS_KEY 1
-
-// Define our settings struct
-typedef struct ClaySettings {
-    bool Analog;
-} ClaySettings;
-
-// An instance of the struct
-static ClaySettings settings;
-
-
-
-/* Main */
-static Window *s_main_window;
-
-/* Battery */
-static Layer *s_battery_layer;
-static int s_battery_level;
-static bool s_charging;
-
-/* Weather */
-static TextLayer *s_temp_layer;;
-static char forecast_str[25];
-static Layer *s_forecast_layer;
-static BitmapLayer *s_conditions_layer;
-
-/* Time and date */
-static TextLayer *s_time_layer, *s_date_layer;
-static GFont s_time_font, s_date_font;
-static Layer *s_analog_layer, *s_24hour_layer;
-
-/* Steps */
-static TextLayer *s_steps_layer;
-static GFont s_steps_font;
-static char steps_str[12];
-
-/* Bluetooth */
-static BitmapLayer *s_bt_icon_layer;
-static GBitmap *s_bt_icon_bitmap;
-
-/* Space */
-static int s_sunset, s_sunrise, s_sun, s_moon, s_mercury, s_venus, s_mars, s_jupiter, s_saturn;
-static bool s_space_ready;
-
-static Layer *s_space_layer, *s_sky_layer;
-//static GPath *ULp, *URp, *BRp, *BLp;
-
-static char* condition_icons[] = {
-    "clear-day", "clear-night", "rain", "snow", "sleet", "wind", "fog", "cloudy", "partly-cloudy-day", "partly-cloudy-night"
-};
-
-static GBitmap* s_condition_icon_bitmap[10];
-
+    settings.color_CLOUDY = GColorLightGray;
+    settings.color_RAINY = GColorJaegerGreen; 
+    settings.color_SNOWY = GColorPictonBlue;
+    settings.color_PARTLY = GColorDarkGray;
+    
+}
 
 static void prv_update_display() {
     // hide and display things according to settings
@@ -104,11 +55,14 @@ static void prv_update_display() {
         layer_set_frame(text_layer_get_layer(s_date_layer), GRect(0, h/2+15, w, 30));
         text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
     }
-}
 
-// Initialize the default settings
-static void prv_default_settings() {
-    settings.Analog = true;
+    layer_mark_dirty(s_battery_layer);
+    layer_mark_dirty(s_forecast_layer);
+    layer_mark_dirty(s_analog_layer);
+    layer_mark_dirty(s_space_layer);
+    layer_mark_dirty(s_sky_layer);
+    
+    update_time();
 }
 
 // Read settings from persistent storage
@@ -279,7 +233,7 @@ static void update_time() {
 
     // Show the date
     static char date_buffer[16];
-    strftime(date_buffer, sizeof(date_buffer), "%b %e", tick_time);
+    strftime(date_buffer, sizeof(date_buffer), settings.dateFormat, tick_time);
     text_layer_set_text(s_date_layer, date_buffer);
 
     if(tick_time->tm_min % 15 == 0) {
@@ -296,17 +250,13 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
 
     // Draw the background
 
-    graphics_context_set_stroke_color(ctx, s_charging ? GColorMediumSpringGreen : COLOR_BATT);
+    graphics_context_set_stroke_color(ctx, s_charging ? GColorMediumSpringGreen : settings.color_BATT);
     graphics_draw_rect (ctx, GRect(0, 0, bounds.size.w, bounds.size.h));
 
     // Draw the bar
-    graphics_context_set_fill_color(ctx, s_charging ? GColorMediumSpringGreen : COLOR_BATT);
+    graphics_context_set_fill_color(ctx, s_charging ? GColorMediumSpringGreen : settings.color_BATT);
     graphics_fill_rect(ctx, GRect(0, 0, width, bounds.size.h), GCornerNone , 0);
 }
-
-static int upperright, lowerright, lowerleft, upperleft, step;
-static GRect bounds;
-static GPoint center;
 
 // perimiter calc
 static void calculate_perimiter(Layer* layer) {
@@ -396,19 +346,19 @@ static void forecast_update_proc(Layer* layer, GContext* ctx) {
         switch (forecast_str[i]) {
             case 'c':
             graphics_context_set_stroke_width(ctx, 3);
-            graphics_context_set_stroke_color(ctx, COLOR_CLOUDY);
+            graphics_context_set_stroke_color(ctx, settings.color_CLOUDY);
             break;
             case 'r':
             graphics_context_set_stroke_width(ctx, 4);
-            graphics_context_set_stroke_color(ctx, COLOR_RAINY);
+            graphics_context_set_stroke_color(ctx, settings.color_RAINY);
             break;
             case 's':
             graphics_context_set_stroke_width(ctx, 4);
-            graphics_context_set_stroke_color(ctx, COLOR_SNOWY);
+            graphics_context_set_stroke_color(ctx, settings.color_SNOWY);
             break;
             case 'p':
             graphics_context_set_stroke_width(ctx, 2);
-            graphics_context_set_stroke_color(ctx, COLOR_PARTLY);
+            graphics_context_set_stroke_color(ctx, settings.color_PARTLY);
             break;
             case '_':
             continue; // don't draw clear segments!
@@ -431,8 +381,8 @@ static void analog_update_proc(Layer *layer, GContext *ctx) {
     time_t temp = time(NULL); 
     struct tm *tick_time = localtime(&temp);
 
-    int minArmStart = (center.x - 20) * (100-s_battery_level) / 100;
-    int hourArmStart = (center.x - 40) * (100-s_battery_level) / 100;
+    int minArmStart = (center.x - 25) * (100-s_battery_level) / 100 + 5;
+    int hourArmStart = (center.x - 45) * (100-s_battery_level) / 100 + 5;
 
     int minArmEnd = center.x - 20;// - minArmStart;
     int hourArmEnd = center.x - 40;// - minArmStart;
@@ -519,9 +469,9 @@ static void sky_update_proc(Layer *layer, GContext *ctx) {
             return; //graphics_context_set_fill_color(ctx, GColorRed);
         } else {
             if (a > s_sunset && a < s_sunrise) {
-                graphics_context_set_fill_color(ctx, daytime ? COLOR_GROUND_DAY : COLOR_GROUND_NIGHT);
+                graphics_context_set_fill_color(ctx, daytime ? settings.color_GROUND_DAY : settings.color_GROUND_NIGHT);
             } else {
-                graphics_context_set_fill_color(ctx, daytime ? COLOR_DAY : COLOR_NIGHT);
+                graphics_context_set_fill_color(ctx, daytime ? settings.color_DAY : settings.color_NIGHT);
             }
         }
         GPoint point = coord_for_light(a);
@@ -536,8 +486,8 @@ static void space_update_proc(Layer *layer, GContext *ctx) {
     if (!s_space_ready) return;
 
     // sun
-    graphics_context_set_fill_color(ctx, COLOR_SUN);
-    graphics_context_set_stroke_color(ctx, COLOR_SUN);
+    graphics_context_set_fill_color(ctx, settings.color_SUN);
+    graphics_context_set_stroke_color(ctx, settings.color_SUN);
     graphics_context_set_stroke_width(ctx, 3);
 
     GPoint sunpoint = coord_for_light(s_sun);
@@ -549,23 +499,23 @@ static void space_update_proc(Layer *layer, GContext *ctx) {
         graphics_draw_line(ctx, sunpoint, ray);
     }
 
-    graphics_context_set_fill_color(ctx, COLOR_MOON);
+    graphics_context_set_fill_color(ctx, settings.color_MOON);
     graphics_fill_circle(ctx, coord_for_light(s_moon), 6);
 
 
-    graphics_context_set_fill_color(ctx, COLOR_VENUS);
+    graphics_context_set_fill_color(ctx, settings.color_VENUS);
     graphics_fill_circle(ctx, coord_for_light(s_venus), 5);
 
-    graphics_context_set_fill_color(ctx, COLOR_MARS);
+    graphics_context_set_fill_color(ctx, settings.color_MARS);
     graphics_fill_circle(ctx, coord_for_light(s_mars), 4);
 
-    graphics_context_set_fill_color(ctx, COLOR_JUPITER);
+    graphics_context_set_fill_color(ctx, settings.color_JUPITER);
     graphics_fill_circle(ctx, coord_for_light(s_jupiter), 5);
 
-    graphics_context_set_fill_color(ctx, COLOR_SATURN);
+    graphics_context_set_fill_color(ctx, settings.color_SATURN);
     graphics_fill_circle(ctx, coord_for_light(s_saturn), 5);
 
-    graphics_context_set_fill_color(ctx, COLOR_MERCURY);
+    graphics_context_set_fill_color(ctx, settings.color_MERCURY);
     graphics_fill_circle(ctx, coord_for_light(s_mercury), 3);
 }
 
@@ -573,6 +523,17 @@ static void space_update_proc(Layer *layer, GContext *ctx) {
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     update_time();
 
+}
+
+static bool loadColor(const DictionaryIterator* iter, const uint32_t key, GColor* field)
+{
+    Tuple *cfg_color = dict_find(iter, key);
+    if (cfg_color) {
+        GColor old = *field;
+        *field = GColorFromHEX(cfg_color->value->int32); 
+        return !gcolor_equal(*field, old);
+    }
+    return false;
 }
 
 // appmessage
@@ -584,10 +545,44 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
 
     Tuple *cfg_analog_tuple = dict_find(iterator, MESSAGE_KEY_CFG_ANALOG);
     if (cfg_analog_tuple) {
+        changedSettings |= (settings.Analog != (cfg_analog_tuple->value->int32 == 1));
         settings.Analog = cfg_analog_tuple->value->int32 == 1;
-        changedSettings = true;
     }
+    
+    Tuple *cfg_dateformat_tuple = dict_find(iterator, MESSAGE_KEY_CFG_DATE_FORMAT);
+    if (cfg_dateformat_tuple) {
+        strcpy(settings.dateFormat, cfg_dateformat_tuple->value->cstring);
+        changedSettings = true;
+        APP_LOG(APP_LOG_LEVEL_DEBUG, "New date format: %s ", steps_str);
+    }
+    
+    
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_TIME, &settings.color_TIME);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_DATE, &settings.color_DATE);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_TEMP, &settings.color_TEMP);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_STEPS, &settings.color_STEPS);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_BATT, &settings.color_BATT);
 
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_NIGHT, &settings.color_NIGHT);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_GROUND_DAY, &settings.color_GROUND_DAY);  
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_GROUND_NIGHT, &settings.color_GROUND_NIGHT);  
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_DAY, &settings.color_DAY);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_SUN, &settings.color_SUN);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_MOON, &settings.color_MOON);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_MERCURY, &settings.color_MERCURY);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_VENUS, &settings.color_VENUS);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_MARS, &settings.color_MARS);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_JUPITER, &settings.color_JUPITER);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_SATURN, &settings.color_SATURN);
+
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_CLOUDY, &settings.color_CLOUDY);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_RAINY, &settings.color_RAINY); 
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_SNOWY, &settings.color_SNOWY);
+    changedSettings |= loadColor(iterator, MESSAGE_KEY_COLOR_PARTLY, &settings.color_PARTLY);
+    
+    // TODO remaining settings
+
+    
     if (changedSettings) {
         prv_save_settings();
         send_message();
@@ -748,7 +743,7 @@ static void main_window_load(Window *window) {
     // Temp layer
     s_temp_layer = text_layer_create(tempRect);
     text_layer_set_background_color(s_temp_layer, GColorClear);
-    text_layer_set_text_color(s_temp_layer, COLOR_TEMP);
+    text_layer_set_text_color(s_temp_layer, settings.color_TEMP);
     text_layer_set_text(s_temp_layer, "");
     text_layer_set_font(s_temp_layer, s_date_font);
     text_layer_set_text_alignment(s_temp_layer, GTextAlignmentRight);
@@ -757,7 +752,7 @@ static void main_window_load(Window *window) {
     // Create time TextLayer
     s_time_layer = text_layer_create(timeRect);
     text_layer_set_background_color(s_time_layer, GColorClear);
-    text_layer_set_text_color(s_time_layer, COLOR_TIME);
+    text_layer_set_text_color(s_time_layer, settings.color_TIME);
     text_layer_set_text(s_time_layer, "--:--");
     text_layer_set_font(s_time_layer, s_time_font);
     text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
@@ -765,7 +760,7 @@ static void main_window_load(Window *window) {
 
     // Create date TextLayer
     s_date_layer = text_layer_create(dateRect);
-    text_layer_set_text_color(s_date_layer, COLOR_DATE);
+    text_layer_set_text_color(s_date_layer, settings.color_DATE);
     text_layer_set_background_color(s_date_layer, GColorClear);
     text_layer_set_text_alignment(s_date_layer, dateAlign);
     text_layer_set_text(s_date_layer, "");
@@ -779,7 +774,7 @@ static void main_window_load(Window *window) {
     // Steps layer
     s_steps_layer = text_layer_create(stepRect);
     text_layer_set_background_color(s_steps_layer, GColorClear);
-    text_layer_set_text_color(s_steps_layer, COLOR_STEPS);
+    text_layer_set_text_color(s_steps_layer, settings.color_STEPS);
     text_layer_set_text(s_steps_layer, "");
     text_layer_set_font(s_steps_layer, s_steps_font);
     text_layer_set_text_alignment(s_steps_layer, GTextAlignmentRight);
@@ -858,7 +853,7 @@ static void init() {
     app_message_register_outbox_failed(outbox_failed_callback);
     app_message_register_outbox_sent(outbox_sent_callback);
 
-    const int inbox_size = 128;
+    const int inbox_size = 1024;
     const int outbox_size = 128;
     app_message_open(inbox_size, outbox_size);
 
